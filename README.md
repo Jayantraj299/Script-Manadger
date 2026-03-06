@@ -1,3 +1,8 @@
+# Command Center Pro
+
+[README.md](http://readme.md/)
+
+```markdown
 # ⚡ Command Center Pro
 
 **A Modular Process Orchestration & Automation Dashboard**
@@ -55,3 +60,102 @@ This project is built using a strict **Model-View-Controller (MVC)** pattern to 
    ```bash
    git clone [https://github.com/yourusername/command-center-pro.git](https://github.com/yourusername/command-center-pro.git)
    cd command-center-pro
+```
+
+1. **Install the dependencies:**Bash
+    
+    `pip install -r requirements.txt`
+    
+    *(Required packages: `customtkinter`, `psutil`, `pystray`, `pillow`)*
+    
+2. **Run the Application:**Bash
+    
+    `python dashboard.py`
+    
+
+---
+
+## 📖 Usage Guide
+
+### Managing Scripts
+
+1. Click **+ NEW** in the sidebar or go to the **Editor** tab.
+2. Name your file (e.g., `server_ping.py`), write your code, and click **SAVE**.
+3. Go to the **Scripts** tab to see your new script card. Toggle the switch to run it!
+
+### Configuring Scripts
+
+Click the **Gear Icon (⚙️)** on any script card to open its settings:
+
+- **Display Mode:** Toggle between `cli` (terminal) and `widget` (GUI).
+- **Priority:** Sorts your scripts (High priority scripts appear at the top).
+- **Run on App Launch:** Start this script automatically when Command Center opens.
+- **Auto-Restart:** Enable the Watchdog feature for crash recovery.
+- **Pin to Sidebar:** Add a quick-access shortcut to the sidebar navigation.
+
+---
+
+## 🖼️ Creating a "Widget-Mode" Script
+
+Want your script to have buttons and sliders instead of just printing text? Create a new script and define a `Widget` class that inherits from `ctk.CTkFrame`.
+
+The dashboard will automatically find this class and render it inside the script card!
+
+**Example `clock_widget.py`:**
+
+Python
+
+```python
+import customtkinter as ctk
+import time
+
+class Widget(ctk.CTkFrame):
+    def __init__(self, parent):
+        # Initialize the frame inside the parent dashboard card
+        super().__init__(parent, fg_color="transparent")
+        
+        # Build your UI
+        self.lbl_time = ctk.CTkLabel(self, text="00:00:00", font=("Consolas", 40, "bold"), text_color="#3498db")
+        self.lbl_time.pack(expand=True, pady=20)
+        
+        # Start the clock loop
+        self.update_clock()
+
+    def update_clock(self):
+        current_time = time.strftime("%H:%M:%S")
+        self.lbl_time.configure(text=current_time)
+        self.after(1000, self.update_clock) # Update every 1 second
+```
+
+*Don't forget to change the script's display mode to `widget` in its settings!*
+
+---
+
+## 📂 Project Structure
+
+Plaintext
+
+`📁 command-center-pro/
+│
+├── dashboard.py         # Main Frontend GUI & Event Loop
+├── script_manager.py    # Backend Threading, Subprocesses & Logic
+├── taskbar_tray.py      # Background System Tray Agent & Mini-Dash
+├── requirements.txt     # Python dependencies
+├── settings.json        # Global application state and styling
+│
+├── 📁 scripts/          # Directory for all user Python scripts
+│   ├── example.py
+│   └── example.json     # Auto-generated isolated config for example.py
+│
+└── 📁 logs/             # Persistent stdout/stderr logs for processes`
+
+---
+
+## ⚙️ Tech Stack
+
+- **Language:** Python 3
+- **GUI Framework:** CustomTkinter
+- **Concurrency:** `threading`, non-blocking `os.read`
+- **Process Management:** `subprocess`, `importlib`
+- **System Monitoring:** `psutil`
+- **Background Agent:** `pystray`, `Pillow`

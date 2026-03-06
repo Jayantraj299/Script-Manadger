@@ -1,9 +1,0 @@
-FROM python:3.13
-WORKDIR d:\Computer\script_manager\scripts
-
-# Install the application dependencies
-COPY /PasswordGenerator
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy in the source code
-COPY /passwordGenerator
