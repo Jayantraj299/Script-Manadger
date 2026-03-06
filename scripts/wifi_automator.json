@@ -1,8 +1,0 @@
-{
-    "priority": 1,
-    "startup": true,
-    "cli_height": 400,
-    "mode": "cli",
-    "auto_restart": true,
-    "pinned": true
-}
