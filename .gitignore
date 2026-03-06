@@ -1,4 +1,4 @@
 logs/
 /scripts
 __pycache__/
-.gitignore
+*.gitignore
