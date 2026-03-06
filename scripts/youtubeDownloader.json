@@ -1,0 +1,7 @@
+{
+    "priority": 2,
+    "startup": false,
+    "cli_height": 150,
+    "mode": "cli",
+    "auto_restart": false
+}

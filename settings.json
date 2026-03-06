@@ -1,0 +1,18 @@
+{
+    "cli_color": "#00ffff",
+    "theme": "Dark",
+    "sidebar_expanded": false,
+    "minimize_to_tray": true,
+    "expanded_states": {
+        "wifi_automator.py": true,
+        "youtubeDownloader.py": false,
+        "PasswordGenerator.py": false,
+        "fu.py": false,
+        "DigitalClock.py": false,
+        "clock.py": false,
+        "file_search.py": false,
+        "leetcode.py": false
+    },
+    "font_size": 12,
+    "tile_height": 30
+}

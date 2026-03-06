@@ -1,0 +1,8 @@
+{
+    "mode": "widget",
+    "priority": 3,
+    "startup": false,
+    "auto_restart": false,
+    "pinned": false,
+    "cli_height": 150
+}
