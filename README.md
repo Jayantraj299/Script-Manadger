@@ -56,18 +56,13 @@ This project is built using a strict **Model-View-Controller (MVC)** pattern to 
    git clone https://github.com/Jayantraj299/Command-Center-Pro.git
    cd command-center-pro
 
-
-1. **Install the dependencies:**Bash
-    
-    `pip install -r requirements.txt`
-    
-    *(Required packages: `customtkinter`, `psutil`, `pystray`, `pillow`)*
-    
-2. **Run the Application:**Bash
-    
-    `python dashboard.py`
-    
-
+1. **Install the dependencies:**
+   *(Required packages: `customtkinter`, `psutil`, `pystray`, `pillow`)*
+   ```bash
+   pip install -r requirements.txt
+3. **Run the Application:**
+    ```bash
+    python dashboard.py
 ---
 
 ## 📖 Usage Guide
