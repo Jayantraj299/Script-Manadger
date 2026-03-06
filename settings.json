@@ -2,7 +2,7 @@
     "cli_color": "#00ffff",
     "theme": "Dark",
     "sidebar_expanded": false,
-    "minimize_to_tray": true,
+    "minimize_to_tray": false,
     "expanded_states": {
         "wifi_automator.py": true,
         "youtubeDownloader.py": false,
@@ -11,7 +11,8 @@
         "DigitalClock.py": false,
         "clock.py": false,
         "file_search.py": false,
-        "leetcode.py": false
+        "leetcode.py": false,
+        "clock_widget.py": false
     },
     "font_size": 12,
     "tile_height": 30
