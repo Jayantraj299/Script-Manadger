@@ -7,10 +7,10 @@ import platform
 import subprocess
 import threading
 from tkinter import messagebox, TclError
+from PIL import Image
+import pystray 
 
-# Import Backend
 from script_manager import ScriptManager, PRIORITY_MAP, REV_PRIORITY_MAP, SCRIPTS_FOLDER
-# Import New Tray Logic
 from taskbar_tray import SystemTray
 
 # ================= UI CONFIGURATION =================
@@ -93,7 +93,6 @@ class ConfigEditor(ctk.CTkToplevel):
         
         ctk.CTkLabel(self, text="Behavior:", font=("Segoe UI", 14, "bold")).pack(pady=(10, 5))
         
-        # Pin Toggle
         self.pin_switch = ctk.CTkSwitch(self, text="Pin to Sidebar")
         if self.data.get("pinned", False): self.pin_switch.select()
         else: self.pin_switch.deselect()
@@ -165,7 +164,6 @@ class DashboardApp(ctk.CTk):
         self.sidebar_width_expanded = 140
         self.sidebar_width_collapsed = 48
         
-        # [NEW] Initialize Tray Class
         self.tray = SystemTray(self)
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
@@ -182,7 +180,8 @@ class DashboardApp(ctk.CTk):
             try:
                 with open(SETTINGS_FILE, "r") as f: return json.load(f)
             except: pass
-        return {"cli_color": "#00ff00", "theme": "Dark", "sidebar_expanded": True, "minimize_to_tray": False, "expanded_states": {}, "font_size": 12, "tile_height": 28}
+        # [NEW] Added script_order to store manual tile arrangement
+        return {"cli_color": "#00ff00", "theme": "Dark", "sidebar_expanded": True, "minimize_to_tray": False, "expanded_states": {}, "font_size": 12, "tile_height": 28, "script_order": []}
 
     def save_app_settings(self):
         self.app_settings["expanded_states"] = self.expanded_states
@@ -232,7 +231,6 @@ class DashboardApp(ctk.CTk):
         self.create_nav_btn("📝", "Editor", lambda: self.select_view("Editor"))
         self.create_nav_btn("📜", "Logs", lambda: self.select_view("Logs"))
         
-        # Pinned
         if self.sidebar_expanded:
             ctk.CTkLabel(self.sidebar, text="PINNED", font=("Segoe UI", 10, "bold"), text_color="gray").pack(anchor="w", padx=15, pady=(10, 0))
         else:
@@ -277,7 +275,6 @@ class DashboardApp(ctk.CTk):
 
     # --- MAIN FRAMES ---
     def setup_main_frames(self):
-        # 1. SCRIPTS
         self.frame_list_container = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         
         self.header_frame = ctk.CTkFrame(self.frame_list_container, height=40, fg_color="transparent")
@@ -289,7 +286,6 @@ class DashboardApp(ctk.CTk):
         self.scroll_frame = ctk.CTkScrollableFrame(self.frame_list_container, label_text="")
         self.scroll_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
-        # 2. EDITOR
         self.frame_editor = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         editor_head = ctk.CTkFrame(self.frame_editor, height=40, fg_color="transparent")
         editor_head.pack(fill="x", padx=20, pady=10)
@@ -301,14 +297,12 @@ class DashboardApp(ctk.CTk):
         self.editor_text = ctk.CTkTextbox(self.frame_editor, font=("Consolas", 13), wrap="none")
         self.editor_text.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
-        # 3. LOGS
         self.frame_logs = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         ctk.CTkLabel(self.frame_logs, text="System Logs", font=("Segoe UI", 20, "bold")).pack(anchor="w", padx=20, pady=20)
         self.sys_log_box = ctk.CTkTextbox(self.frame_logs, font=("Consolas", 12))
         self.sys_log_box.pack(fill="both", expand=True, padx=20, pady=(0, 20))
         self.sys_log_box.configure(state="disabled")
 
-        # 4. SETTINGS
         self.frame_settings = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         ctk.CTkLabel(self.frame_settings, text="Settings", font=("Segoe UI", 20, "bold")).pack(anchor="w", padx=20, pady=20)
         
@@ -385,7 +379,6 @@ class DashboardApp(ctk.CTk):
         elif name == "Settings":
             self.frame_settings.grid(row=0, column=1, sticky="nsew")
         else:
-            # Single Script View
             self.frame_list_container.grid(row=0, column=1, sticky="nsew")
             self.header_label.configure(text=f"Script: {name}")
             self.current_view_mode = name 
@@ -416,6 +409,26 @@ class DashboardApp(ctk.CTk):
             self.refresh_list()
         else: messagebox.showerror("Error", "Failed to save")
 
+    # =================================================================
+    # --- DYNAMIC SORTING LOGIC ---
+    # =================================================================
+    
+    def move_script(self, script_name, direction):
+        """Moves a script up (-1) or down (1) in the custom array."""
+        order = self.app_settings.get("script_order", [])
+        if script_name not in order: return
+        
+        idx = order.index(script_name)
+        new_idx = idx + direction
+        
+        # Ensure we stay within bounds
+        if 0 <= new_idx < len(order):
+            # Swap items
+            order[idx], order[new_idx] = order[new_idx], order[idx]
+            self.app_settings["script_order"] = order
+            self.save_app_settings()
+            self.refresh_list() # Redraw UI in new order
+
     def refresh_list(self):
         if self.current_view_mode == "startup":
             target_scripts = self.manager.get_available_scripts(filter_startup=True)
@@ -424,7 +437,23 @@ class DashboardApp(ctk.CTk):
         else:
             target_scripts = [self.current_view_mode]
 
-        # Cleanup old
+        # [NEW] Sync and Update Custom Order
+        all_avail = self.manager.get_available_scripts()
+        current_order = self.app_settings.get("script_order", [])
+        
+        # 1. Remove deleted scripts from saved order
+        current_order = [s for s in current_order if s in all_avail]
+        # 2. Append any new scripts to the bottom of the list
+        for s in all_avail:
+            if s not in current_order:
+                current_order.append(s)
+                
+        self.app_settings["script_order"] = current_order
+        
+        # Filter the ordered list down to what we actually want to show
+        display_scripts = [s for s in current_order if s in target_scripts]
+
+        # Hide old UI cards so we can repack them in the exact order
         for script_name in list(self.script_widgets.keys()):
             widget_data = self.script_widgets[script_name]
             if script_name not in target_scripts:
@@ -435,15 +464,18 @@ class DashboardApp(ctk.CTk):
                          widget_data['frame'].destroy()
                          del self.script_widgets[script_name]
                      else: widget_data['frame'].pack_forget()
-            elif script_name in target_scripts:
+            else:
+                 # Hide the frame so it can be re-packed in the new sorted order
+                 widget_data['frame'].pack_forget() 
+
+                 # Apply live size updates
                  conf = self.manager.read_config(script_name)
                  new_height = conf.get("cli_height", 100)
                  if widget_data.get('content_area'): widget_data['content_area'].configure(height=new_height)
                  if widget_data.get('console'): widget_data['console'].configure(height=new_height)
-                 widget_data['frame'].pack_forget()
 
-        # Add new
-        for script in target_scripts:
+        # Draw / Re-pack the UI cards based on the Custom Sorted List
+        for script in display_scripts:
             if script in self.script_widgets:
                 self.script_widgets[script]['frame'].pack(fill="x", pady=2, padx=20) 
                 sw = self.script_widgets[script]['switch']
@@ -453,7 +485,6 @@ class DashboardApp(ctk.CTk):
                 w = self.script_widgets[script]
                 w['head'].configure(height=self.global_tile_height)
                 
-                # Expand if specific view
                 if self.current_view_mode not in ["all", "startup"] and not self.expanded_states.get(script, False):
                     self.toggle_details(script)
             else:
@@ -503,6 +534,13 @@ class DashboardApp(ctk.CTk):
         dep_frame.pack(side="left", padx=2)
 
         btn_s = self.global_font_size + 8
+        
+        # [NEW] Move Up / Move Down Buttons
+        ctk.CTkButton(btns, text="▲", width=20, height=btn_s-2, fg_color="#555", font=("Arial", self.global_font_size-2),
+                      command=lambda s=script_name: self.move_script(s, -1)).pack(side="left", padx=1)
+        ctk.CTkButton(btns, text="▼", width=20, height=btn_s-2, fg_color="#555", font=("Arial", self.global_font_size-2),
+                      command=lambda s=script_name: self.move_script(s, 1)).pack(side="left", padx=1)
+
         ctk.CTkButton(btns, text="✏️", width=btn_s, height=btn_s-2, fg_color="#555", font=("Arial", self.global_font_size-2),
                       command=lambda s=script_name: self.open_editor_tab(s)).pack(side="left", padx=2)
         ctk.CTkButton(btns, text="⚙️", width=btn_s, height=btn_s-2, fg_color="#555", font=("Arial", self.global_font_size-2),
@@ -611,7 +649,7 @@ class DashboardApp(ctk.CTk):
     def on_closing(self):
         if self.app_settings.get("minimize_to_tray", False):
             self.withdraw()
-            self.tray.run() # Use tray class
+            self.tray.run() 
         else:
             self.quit_app_fully()
 
@@ -660,41 +698,33 @@ class DashboardApp(ctk.CTk):
         if platform.system() == "Windows": os.startfile(SCRIPTS_FOLDER)
         elif platform.system() == "Darwin": subprocess.Popen(["open", SCRIPTS_FOLDER])
         else: subprocess.Popen(["xdg-open", SCRIPTS_FOLDER])
-    
-# =================================================================
-    # --- MINI TRAY DASHBOARD LOGIC (NEW) ---
+
+    # =================================================================
+    # --- MINI TRAY DASHBOARD LOGIC ---
     # =================================================================
     
     def show_mini_dashboard(self):
-        """Creates a borderless pop-up above the taskbar."""
-        # If it's already open, clicking the tray icon again will close it
         if hasattr(self, "mini_dash") and self.mini_dash and self.mini_dash.winfo_exists():
             self.mini_dash.destroy()
             return
 
-        # Create a new top-level window
         self.mini_dash = ctk.CTkToplevel(self)
         self.mini_dash.title("Quick Controls")
         
-        # overrideredirect(True) removes the Windows top bar (X, minimize, maximize buttons)
-        # making it look like a native taskbar pop-up menu!
         self.mini_dash.overrideredirect(True) 
-        self.mini_dash.attributes("-topmost", True) # Keep it above everything
+        self.mini_dash.attributes("-topmost", True)
         self.mini_dash.configure(fg_color=("#EBEBEB", "#2b2b2b"), border_width=1, border_color="#555")
 
-        # --- CALCULATE POSITION (Bottom Right) ---
         width = 280
         height = 350
-        x_pos = self.winfo_screenwidth() - width - 20   # 20px from right edge
-        y_pos = self.winfo_screenheight() - height - 60 # 60px from bottom (avoids taskbar)
+        x_pos = self.winfo_screenwidth() - width - 20
+        y_pos = self.winfo_screenheight() - height - 60
         self.mini_dash.geometry(f"{width}x{height}+{x_pos}+{y_pos}")
 
-        # --- DRAW UI ---
         head = ctk.CTkFrame(self.mini_dash, corner_radius=0, fg_color=("gray80", "gray15"))
         head.pack(fill="x")
         ctk.CTkLabel(head, text="Active Automations", font=("Segoe UI", 14, "bold")).pack(pady=10)
 
-        # Scrollable list of RUNNING scripts
         scroll = ctk.CTkScrollableFrame(self.mini_dash, fg_color="transparent")
         scroll.pack(fill="both", expand=True, padx=10, pady=10)
 
@@ -707,16 +737,13 @@ class DashboardApp(ctk.CTk):
                 row = ctk.CTkFrame(scroll, fg_color="transparent")
                 row.pack(fill="x", pady=2)
 
-                # Green dot indicator
                 ctk.CTkLabel(row, text="🟢", text_color="#2ecc71", font=("Arial", 10)).pack(side="left")
-                display_name = script.replace(".py", "")[:18] # Truncate long names
+                display_name = script.replace(".py", "")[:18]
                 ctk.CTkLabel(row, text=display_name, font=("Segoe UI", 12)).pack(side="left", padx=5)
 
-                # Quick Stop Button
                 ctk.CTkButton(row, text="Stop", width=40, height=20, fg_color="#e74c3c", hover_color="#c0392b",
                               command=lambda s=script: self.stop_from_mini(s)).pack(side="right")
 
-        # Bottom Action Buttons
         btn_frame = ctk.CTkFrame(self.mini_dash, fg_color="transparent")
         btn_frame.pack(fill="x", padx=10, pady=10)
 
@@ -726,20 +753,17 @@ class DashboardApp(ctk.CTk):
                       command=self.mini_dash.destroy).pack(fill="x", pady=2)
 
     def stop_from_mini(self, script_name):
-        """Stops a script and refreshes the mini UI instantly."""
         self.manager.stop_script(script_name)
-        self.after(200, self.show_mini_dashboard) # Re-draw the popup to remove the stopped script
-        # Also sync the main UI in the background
+        self.after(200, self.show_mini_dashboard)
         if script_name in self.script_widgets:
             self.script_widgets[script_name]['switch'].deselect()
 
     def restore_from_mini(self):
-        """Closes popup, destroys tray icon, and restores main window."""
         if hasattr(self, "mini_dash") and self.mini_dash:
             self.mini_dash.destroy()
         self.tray.stop()
         self.deiconify()
-        
+
 if __name__ == "__main__":
     app_manager = ScriptManager()
     app = DashboardApp(app_manager)
